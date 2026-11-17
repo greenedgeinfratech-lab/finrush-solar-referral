@@ -1,7 +1,14 @@
-# Finrush Solar Referral Programme
+# Finrush Solar Referral Programme + CRM
 
-Static site + PHP form handler deployed to https://finrush.co.in/solar-partner/
-(cloned by Hostinger into public_html/solar-partner).
+PHP 8 + MySQL app for finrush.co.in (Hostinger). Auto-deployed from `main`.
 
-- Submissions are saved as CSV in `domains/finrush.co.in/solar-partner-data/` (outside public_html) and emailed to the addresses in `submit.php`.
-- Remove the `noindex` meta tags and the X-Robots-Tag line in `.htaccess` when approved to go public.
+- `/` landing page, `/terms.html`, `/disclosure.html`, `/privacy.html`
+- `/quote.php?ref=FR0001` customer quote form (partner referral links)
+- `/partner/` partner portal: register, log in, add leads, add updates, view stages and earnings
+- `/admin/` team panel: leads pipeline, partners and KYC, payouts (commissions and bonuses), team, settings, CSV exports
+- `/setup.php` one-time setup; writes `finrush-crm-config.php` OUTSIDE public_html. Locked after first run.
+- `/migrate.php` one-time WordPress backup + move (runs only from the old /solar-partner/ folder)
+
+Secrets never go in this repo: DB credentials live in the private config file; the setup key is stored only as a hash in `inc/setup-key.php`.
+
+Preview mode: remove the `X-Robots-Tag` line in `.htaccess` and the robots meta tags in the HTML pages when ready for Google.

@@ -28,7 +28,7 @@
       <a href="#calculator">Calculator</a>
       <a href="#faq">FAQ</a>
     </nav>
-    <a class="btn btn-p" href="#join">Join free</a>
+    <span style="display:flex;gap:8px"><a class="btn btn-o" href="partner/login.php">Partner login</a><a class="btn btn-p" href="partner/register.php">Join free</a></span>
   </div>
 </header>
 
@@ -43,7 +43,7 @@
       <p class="hi">सोलर रेफर करें, कमीशन कमाएं — बिना किसी जॉइनिंग फीस के।</p>
       <p class="lead">Know someone planning rooftop solar? Refer them through Finrush. Our solar execution partner, Greenedge Infratech, handles the survey, quotation, subsidy paperwork and installation. Once the system is installed and paid for, Finrush pays your commission.</p>
       <div class="ctas">
-        <a class="btn btn-p" href="#join">Become a Referral Partner</a>
+        <a class="btn btn-p" href="partner/register.php">Become a Referral Partner</a>
         <a class="btn btn-o" href="#calculator">Calculate your earnings</a>
       </div>
       <div class="ticks">
@@ -71,7 +71,7 @@
     <p class="lead">You make the introduction. Finrush tracks it, Greenedge's engineering team installs it, and Finrush pays you.</p>
     <div class="steps">
       <div class="step"><h3>Register free</h3><p>Fill the short form below. Finrush verifies your details and sends your Partner ID.</p></div>
-      <div class="step"><h3>Refer a customer</h3><p>Submit the customer's name and number (with their permission) using the referral form or WhatsApp.</p></div>
+      <div class="step"><h3>Refer a customer</h3><p>Add the customer in your partner account, or share your personal referral link so they fill the form themselves.</p></div>
       <div class="step"><h3>We survey &amp; install</h3><p>Greenedge does the site survey, quotation, subsidy and net-metering paperwork, and installation.</p></div>
       <div class="step"><h3>You get paid</h3><p>After installation and full customer payment, Finrush credits your commission to your bank within 15–30 working days.</p></div>
     </div>
@@ -248,83 +248,26 @@
       <details><summary>What if two people refer the same customer?</summary><p>The first partner whose referral is recorded in our system, with the customer's correct mobile number, gets the credit. A referral stays valid for 90 days from submission.</p></details>
       <details><summary>Do I need solar knowledge?</summary><p>No. You only make the introduction. Training is provided, and Greenedge's team handles survey, proposal and installation.</p></details>
       <details><summary>Is income guaranteed?</summary><p>No. Income depends entirely on referrals that become installed and paid projects. Many partners may earn little or nothing.</p></details>
-      <details><summary>What documents do I need?</summary><p>After registration Finrush will ask for PAN (needed for TDS), Aadhaar for identity, and bank details for payouts. We collect these securely during verification, not on this website.</p></details>
+      <details><summary>What documents do I need?</summary><p>After registration Finrush will ask for PAN (needed for TDS), Aadhaar for identity, and bank details for payouts. These are collected during verification by our team, not on the registration form.</p></details>
+      <details><summary>How do I track my referrals?</summary><p>Log in to your partner account with your mobile number and password. You'll see every lead's stage (contacted, survey, quotation, installed, paid), can add updates for our team, and can view your commission and payout history.</p></details>
       <details><summary>Who pays my commission, Finrush or Greenedge?</summary><p>Finrush. This is a Finrush programme, and Finrush Smart Services Pvt. Ltd. pays all commissions and bonuses from its own account. Greenedge Infratech, Finrush's solar execution partner, sells and installs the systems and confirms to Finrush when a project is installed and paid.</p></details>
       <details><summary>Can I promise customers subsidy or savings?</summary><p>Please don't. Subsidy depends on government rules and approval, and savings depend on usage. Share Greenedge's official proposal instead. False claims can lead to termination.</p></details>
     </div>
   </div>
 </section>
 
-<!-- JOIN / REFER -->
+<!-- JOIN -->
 <section id="join" class="alt">
   <div class="wrap">
     <span class="eyebrow">Get started</span>
-    <h2>Join the programme or refer a customer</h2>
-    <p class="lead">New here? Register first. Already a partner? Use the referral form.</p>
-
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true" data-tab="partner">Become a partner</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="referral">Refer a customer</button>
+    <h2>Join free, refer customers, track every rupee</h2>
+    <p class="lead">Your partner account shows every lead's progress, from survey to installation, plus your commission and payout history.</p>
+    <div class="grid3" style="margin-top:24px">
+      <div class="card" style="border:2px solid var(--green)"><div class="ic">🤝</div><h3>New partner?</h3><p>Register in two minutes with your mobile number. Free, with no fees or targets.</p><a class="btn btn-p" style="margin-top:14px" href="partner/register.php">Become a partner</a></div>
+      <div class="card"><div class="ic">🔐</div><h3>Already a partner?</h3><p>Log in to add customer leads, share your referral link and see your earnings.</p><a class="btn btn-o" style="margin-top:14px" href="partner/login.php">Partner login</a></div>
+      <div class="card"><div class="ic">🏠</div><h3>Want solar for yourself?</h3><p>Get a free site survey and quotation from Greenedge Infratech.</p><a class="btn btn-o" style="margin-top:14px" href="quote.php">Get a free quote</a></div>
     </div>
-
-    <!-- Partner form -->
-    <form class="form-card" id="form-partner" data-type="partner" method="post" action="submit.php" novalidate>
-      <input type="hidden" name="form_type" value="partner">
-      <input type="hidden" name="ts" class="ts">
-      <div class="hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-      <div class="fgrid">
-        <div><label for="p_name">Full name <span class="req">*</span></label><input id="p_name" name="name" required maxlength="80" autocomplete="name"></div>
-        <div><label for="p_phone">Mobile (WhatsApp) <span class="req">*</span></label><input id="p_phone" name="phone" required inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10" placeholder="10-digit mobile" autocomplete="tel-national"></div>
-        <div><label for="p_email">Email</label><input id="p_email" name="email" type="email" maxlength="100" autocomplete="email"></div>
-        <div><label for="p_city">City / Town <span class="req">*</span></label><input id="p_city" name="city" required maxlength="60"></div>
-        <div><label for="p_district">District &amp; State <span class="req">*</span></label><input id="p_district" name="district" required maxlength="80" placeholder="e.g. Aligarh, Uttar Pradesh"></div>
-        <div><label for="p_occ">Occupation <span class="req">*</span></label>
-          <select id="p_occ" name="occupation" required>
-            <option value="">Select…</option>
-            <option>Electrician</option><option>Builder / Contractor</option><option>Property dealer</option>
-            <option>Architect / Engineer</option><option>Solar installer</option><option>Shop / Business owner</option>
-            <option>Sales professional</option><option>Other</option>
-          </select></div>
-        <div class="full"><label for="p_msg">Anything you'd like to tell us?</label><textarea id="p_msg" name="message" rows="3" maxlength="500" placeholder="Your experience, area you cover, etc."></textarea></div>
-        <div class="full"><label class="check"><input type="checkbox" name="consent" value="yes" required> <span>I am 18 or older. I agree to the <a href="terms.html" target="_blank">Terms &amp; Conditions</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>, and I understand that income is not guaranteed and depends only on installed and paid solar projects. <span class="req">*</span></span></label></div>
-      </div>
-      <button class="btn btn-p" type="submit" style="margin-top:18px">Register as partner</button>
-      <div class="msg" role="status"></div>
-    </form>
-
-    <!-- Referral form -->
-    <form class="form-card" id="form-referral" data-type="referral" method="post" action="submit.php" novalidate hidden>
-      <input type="hidden" name="form_type" value="referral">
-      <input type="hidden" name="ts" class="ts">
-      <div class="hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-      <div class="fgrid">
-        <div class="full" style="font-weight:700;color:var(--green-d)">Your details</div>
-        <div><label for="r_pname">Your name <span class="req">*</span></label><input id="r_pname" name="partner_name" required maxlength="80"></div>
-        <div><label for="r_pphone">Your registered mobile <span class="req">*</span></label><input id="r_pphone" name="partner_phone" required inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10"></div>
-        <div class="full"><label for="r_pid">Partner ID (if you have one)</label><input id="r_pid" name="partner_id" maxlength="30"></div>
-        <div class="full" style="font-weight:700;color:var(--green-d);margin-top:6px">Customer details</div>
-        <div><label for="r_cname">Customer name <span class="req">*</span></label><input id="r_cname" name="customer_name" required maxlength="80"></div>
-        <div><label for="r_cphone">Customer mobile <span class="req">*</span></label><input id="r_cphone" name="customer_phone" required inputmode="numeric" pattern="[6-9][0-9]{9}" maxlength="10"></div>
-        <div><label for="r_ccity">Customer city / town <span class="req">*</span></label><input id="r_ccity" name="customer_city" required maxlength="80"></div>
-        <div><label for="r_type">Project type <span class="req">*</span></label>
-          <select id="r_type" name="project_type" required>
-            <option value="">Select…</option>
-            <option>Residential (home, up to 10 kW)</option>
-            <option>Commercial / housing society (up to 100 kW)</option>
-            <option>Industrial (above 100 kW)</option>
-            <option>Not sure</option>
-          </select></div>
-        <div><label for="r_kw">Approx. size (kW) or monthly bill (₹)</label><input id="r_kw" name="size" maxlength="40" placeholder="e.g. 3 kW or ₹2,500 bill"></div>
-        <div><label for="r_pm">Interested in PM Surya Ghar subsidy?</label>
-          <select id="r_pm" name="pm_surya_ghar"><option>Not sure</option><option>Yes</option><option>No</option></select></div>
-        <div class="full"><label for="r_note">Notes</label><textarea id="r_note" name="message" rows="3" maxlength="500" placeholder="Best time to call, roof type, etc."></textarea></div>
-        <div class="full"><label class="check"><input type="checkbox" name="consent" value="yes" required> <span>The customer has agreed to be contacted by Finrush and Greenedge Infratech about solar, and I have not promised them any subsidy, price or savings. <span class="req">*</span></span></label></div>
-      </div>
-      <button class="btn btn-p" type="submit" style="margin-top:18px">Submit referral</button>
-      <div class="msg" role="status"></div>
-    </form>
-
-    <p class="small" style="margin-top:16px">Prefer WhatsApp? Message <a href="https://wa.me/919837067681?text=Hi%2C%20I%20want%20to%20join%20the%20Finrush%20Solar%20Referral%20Programme">+91 98370 67681</a> with "PARTNER".</p>
+    <p class="small" style="margin-top:18px">Prefer WhatsApp? Message <a href="https://wa.me/919837067681?text=Hi%2C%20I%20want%20to%20join%20the%20Finrush%20Solar%20Referral%20Programme">+91 98370 67681</a> with "PARTNER".</p>
   </div>
 </section>
 
@@ -354,6 +297,7 @@
           <li><a href="privacy.html">Privacy Policy</a></li>
           <li><a href="disclosure.html#grievance">Grievance Redressal</a></li>
           <li><a href="https://greenedgeinfratech.com" target="_blank" rel="noopener">greenedgeinfratech.com</a></li>
+          <li><a href="admin/login.php">Team login</a></li>
         </ul>
       </div>
     </div>
@@ -383,43 +327,6 @@
   ['rN','rV','cN','cV','iN','iV'].forEach(function(id){ document.getElementById(id).addEventListener('input', calc); });
   calc();
 
-  // tabs
-  var tabs = document.querySelectorAll('.tab');
-  function show(name){
-    tabs.forEach(function(t){ t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'); });
-    document.getElementById('form-partner').hidden = name !== 'partner';
-    document.getElementById('form-referral').hidden = name !== 'referral';
-  }
-  tabs.forEach(function(t){ t.addEventListener('click', function(){ show(t.dataset.tab); }); });
-  if (location.hash === '#refer') { show('referral'); }
-
-  // forms
-  var start = Date.now();
-  document.querySelectorAll('.ts').forEach(function(el){ el.value = Math.floor(start/1000); });
-  document.querySelectorAll('form[data-type]').forEach(function(f){
-    var msg = f.querySelector('.msg'), btn = f.querySelector('button[type=submit]');
-    f.addEventListener('submit', function(e){
-      e.preventDefault();
-      msg.className = 'msg'; msg.textContent = '';
-      if (!f.checkValidity()) {
-        var bad = f.querySelector(':invalid');
-        msg.className = 'msg err';
-        msg.textContent = bad && bad.type === 'checkbox' ? 'Please tick the consent box to continue.' :
-          (bad && bad.pattern ? 'Please enter a valid 10-digit Indian mobile number.' : 'Please fill all required fields.');
-        if (bad) bad.focus();
-        return;
-      }
-      btn.disabled = true; var label = btn.textContent; btn.textContent = 'Sending…';
-      fetch(f.action, { method:'POST', body:new FormData(f), headers:{ 'Accept':'application/json' } })
-        .then(function(r){ return r.json().catch(function(){ return { ok:false, error:'Unexpected server response.' }; }); })
-        .then(function(d){
-          if (d.ok) { msg.className = 'msg ok'; msg.textContent = d.message; f.reset(); document.querySelectorAll('.ts').forEach(function(el){ el.value = Math.floor(start/1000); }); }
-          else { msg.className = 'msg err'; msg.textContent = d.error || 'Something went wrong. Please try again or WhatsApp us.'; }
-        })
-        .catch(function(){ msg.className = 'msg err'; msg.textContent = 'Network error. Please try again or WhatsApp us on +91 98370 67681.'; })
-        .finally(function(){ btn.disabled = false; btn.textContent = label; });
-    });
-  });
   document.getElementById('yr').textContent = new Date().getFullYear();
 })();
 </script>

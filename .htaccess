@@ -1,12 +1,27 @@
 Options -Indexes
-DirectoryIndex index.html
+DirectoryIndex index.html index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Force HTTPS
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # Old address of the programme
+  RewriteRule ^solar-partner/?(.*)$ /$1 [L,R=301]
+  # Never serve internals
+  RewriteRule ^(inc|\.git)(/|$) - [F,L]
+  RewriteRule ^(README\.md|composer\.(json|lock))$ - [F,L]
+</IfModule>
+
+<FilesMatch "\.(sql|gz|csv|log|ini|bak)$">
+  Require all denied
+</FilesMatch>
 
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set X-Frame-Options "SAMEORIGIN"
+  # PREVIEW: remove the next line when the site is approved to appear in Google
   Header always set X-Robots-Tag "noindex, nofollow"
 </IfModule>
-
-# Block direct access to any local data fallback folder
-RedirectMatch 404 ^/solar-partner/data/
