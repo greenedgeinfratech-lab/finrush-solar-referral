@@ -11,6 +11,35 @@ mb_internal_encoding('UTF-8');
 define('APP_ROOT', dirname(__DIR__));
 define('APP_NAME', 'Finrush Solar Referral Programme');
 
+// ---------- error handling: log privately, show a friendly page ----------
+function error_log_path(): string { return private_dir() . '/finrush-errors.log'; }
+function log_error_line(string $msg): string {
+    $id = strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
+    $line = '[' . date('Y-m-d H:i:s') . "] #$id " . ($_SERVER['REQUEST_METHOD'] ?? 'CLI') . ' ' . ($_SERVER['REQUEST_URI'] ?? '') . ' | ' . str_replace(["\r", "\n"], ' ', $msg) . "\n";
+    @file_put_contents(error_log_path(), $line, FILE_APPEND | LOCK_EX);
+    return $id;
+}
+function friendly_error(int $code, string $id): void {
+    if (PHP_SAPI === 'cli') { fwrite(STDERR, "Error #$id\n"); return; }
+    if (!headers_sent()) { http_response_code($code); header('Content-Type: text/html; charset=utf-8'); header('Retry-After: 5'); header('Cache-Control: no-store'); }
+    $msg = $code === 503 ? 'The server is busy for a moment. Please wait a few seconds and try again.' : 'Something went wrong on our side. Please try again — if it keeps happening, WhatsApp us on +91 98370 67681.';
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Please try again | Finrush</title>'
+       . '<style>body{font-family:system-ui,sans-serif;background:#f5f8f6;color:#14211a;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px}.c{background:#fff;border:1px solid #dfe7e2;border-radius:16px;padding:28px;max-width:420px;text-align:center}a.b{display:inline-block;margin-top:16px;background:#15803d;color:#fff;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:700}small{color:#5a6b61}</style></head>'
+       . '<body><div class="c"><h1 style="font-size:1.3rem">Please try again</h1><p>' . $msg . '</p><a class="b" href="javascript:location.reload()">Try again</a><p><small>Error reference: ' . $id . '</small></p></div></body></html>';
+}
+set_exception_handler(function (Throwable $e): void {
+    $isDb = $e instanceof PDOException && preg_match('/2002|2006|1040|1203|1226|HY000|Too many connections|refused|gone away/i', $e->getMessage() . ' ' . $e->getCode());
+    $id = log_error_line(get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine());
+    friendly_error($isDb ? 503 : 500, $id);
+});
+register_shutdown_function(function (): void {
+    $e = error_get_last();
+    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        $id = log_error_line('FATAL ' . $e['message'] . ' @ ' . basename($e['file']) . ':' . $e['line']);
+        friendly_error(500, $id);
+    }
+});
+
 /** Folder that holds public_html (private storage lives here, never inside public_html). */
 function private_dir(): string {
     $root = realpath(APP_ROOT) ?: APP_ROOT;
@@ -49,11 +78,23 @@ function db(): PDO {
     $c = app_config();
     if (!$c) { http_response_code(503); exit('This site is not set up yet.'); }
     $d = $c['db'];
-    $pdo = new PDO(
-        'mysql:host=' . $d['host'] . ';dbname=' . $d['name'] . ';charset=utf8mb4',
-        $d['user'], $d['pass'],
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]
-    );
+    // The hosting account allows ~20 new DB connections per second across ALL its sites,
+    // so a refused connection is usually momentary: retry a few times before giving up.
+    $wait = [0, 300000, 800000, 1500000];
+    foreach ($wait as $i => $us) {
+        if ($us) usleep($us);
+        try {
+            $pdo = new PDO(
+                'mysql:host=' . $d['host'] . ';dbname=' . $d['name'] . ';charset=utf8mb4',
+                $d['user'], $d['pass'],
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_TIMEOUT => 5]
+            );
+            if ($i > 0) log_error_line('DB connected after ' . $i . ' retr' . ($i === 1 ? 'y' : 'ies'));
+            break;
+        } catch (PDOException $e) {
+            if ($i === count($wait) - 1) throw $e;
+        }
+    }
     $pdo->exec("SET time_zone = '+05:30'");
     return $pdo;
 }

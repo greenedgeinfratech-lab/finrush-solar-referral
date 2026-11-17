@@ -3,10 +3,7 @@ DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # Force HTTPS
-  RewriteCond %{HTTPS} !=on
-  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
-  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # HTTPS is enforced by Hostinger's own redirect setting (hPanel), not here, to avoid double redirects behind the CDN.
   # Old address of the programme
   RewriteRule ^solar-partner/?(.*)$ /$1 [L,R=301]
   # Never serve internals

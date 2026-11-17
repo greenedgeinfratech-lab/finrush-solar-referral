@@ -16,6 +16,11 @@ if ($cmd === 'delete-partner' && preg_match('/^FR\d{4,}$/', $arg)) {
     echo "Deleted partner $arg ({$pt['name']}, joined {$pt['created_at']}). Remaining partners: " . val('SELECT COUNT(*) FROM partners') . "\n";
     exit(0);
 }
+if ($cmd === 'errors') {
+    $f = error_log_path();
+    if (!is_file($f)) { echo "No errors logged yet.\n"; exit(0); }
+    $l = file($f); echo count($l) . " line(s) in log; last 40:\n" . implode('', array_slice($l, -40)); exit(0);
+}
 if ($cmd === 'diag') {
     echo 'PHP ' . PHP_VERSION . ' | log_errors=' . ini_get('log_errors') . ' error_log=' . ini_get('error_log') . "\n";
     $urls = ['https://finrush.co.in/', 'https://finrush.co.in/partner/login.php', 'https://finrush.co.in/partner/register.php', 'https://finrush.co.in/admin/login.php', 'https://finrush.co.in/quote.php', 'https://www.finrush.co.in/', 'http://finrush.co.in/partner/login.php'];
