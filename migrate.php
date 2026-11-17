@@ -17,7 +17,9 @@ $base = dirname($pub);
 $lock = $base . '/.finrush-migrated';
 $e = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
+$CLI = PHP_SAPI === 'cli';
 function page(string $body): void {
+    if (PHP_SAPI === 'cli') { echo trim(html_entity_decode(strip_tags(str_replace(['</p>', '</h1>', '<br>', '</li>'], "\n", $body)))), "\n"; exit; }
     echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Finrush — move WordPress</title>'
        . '<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:30px auto;padding:0 16px;color:#14211a}h1{font-size:1.4rem}.box{border:1px solid #dfe7e2;border-radius:12px;padding:18px;margin:14px 0}'
        . 'input{padding:10px;border:1px solid #c9d6ce;border-radius:8px;width:100%;box-sizing:border-box}button{background:#15803d;color:#fff;border:0;border-radius:999px;padding:11px 20px;font-weight:700;cursor:pointer;margin-top:12px}'
@@ -28,6 +30,10 @@ function page(string $body): void {
 if (basename($here) !== 'solar-partner' || basename($pub) !== 'public_html') page('<h1>Not available</h1><p>This tool only runs from the old /solar-partner/ folder.</p>');
 if (is_file($lock)) page('<h1>Already done</h1><p>WordPress was already moved on ' . $e(trim((string) file_get_contents($lock))) . '.</p>');
 
+if ($CLI) {
+    // Run from the hosting account's command line / cron: account access is the authorisation.
+    if (!in_array('--run', $argv ?? [], true)) page('Usage: php migrate.php --run');
+} else {
 session_name('FRMIG'); session_start();
 if (empty($_SESSION['t'])) $_SESSION['t'] = bin2hex(random_bytes(16));
 
@@ -44,6 +50,7 @@ if (!hash_equals($_SESSION['t'], (string) ($_POST['t'] ?? ''))) page('<p class="
 $hash = require __DIR__ . '/inc/setup-key.php';
 if (!password_verify((string) ($_POST['key'] ?? ''), $hash)) { sleep(2); page('<p class="err">Setup key is incorrect.</p><p><a href="">Try again</a></p>'); }
 if (($_POST['confirm'] ?? '') !== 'yes') page('<p class="err">Please tick the confirmation box.</p>');
+}
 
 $log = [];
 $stamp = date('Ymd-His');
