@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /partner/
+Disallow: /inc/
+Disallow: /setup.php
+Disallow: /migrate.php
+Disallow: /quote.php
+
+Sitemap: https://finrush.co.in/sitemap.xml

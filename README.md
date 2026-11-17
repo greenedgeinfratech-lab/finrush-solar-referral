@@ -7,8 +7,7 @@ PHP 8 + MySQL app for finrush.co.in (Hostinger). Auto-deployed from `main`.
 - `/partner/` partner portal: register, log in, add leads, add updates, view stages and earnings
 - `/admin/` team panel: leads pipeline, partners and KYC, payouts (commissions and bonuses), team, settings, CSV exports
 - `/setup.php` one-time setup; writes `finrush-crm-config.php` OUTSIDE public_html. Locked after first run.
-- `/migrate.php` one-time WordPress backup + move (runs only from the old /solar-partner/ folder)
 
 Secrets never go in this repo: DB credentials live in the private config file; the setup key is stored only as a hash in `inc/setup-key.php`.
 
-Preview mode: remove the `X-Robots-Tag` line in `.htaccess` and the robots meta tags in the HTML pages when ready for Google.
+Public pages (home, terms, disclosure, privacy) are indexable and listed in `sitemap.xml`. The partner portal, team panel and quote form are kept out of search engines by `robots.txt` and a noindex meta tag. Maintenance: `php inc/cli.php delete-partner FR0001` (command line only).
