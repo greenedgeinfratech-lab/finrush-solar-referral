@@ -35,6 +35,18 @@ if (is_post()) {
                p('kyc_status', 10) === 'verified' ? 'verified' : 'pending', p('team_notes', 2000) ?: null, $id]);
             flash('Partner details saved.');
         }
+    } elseif ($a === 'delete') {
+        $hasLeads = (int) val('SELECT COUNT(*) FROM leads WHERE partner_id = ?', [$id]);
+        $hasBonus = (int) val('SELECT COUNT(*) FROM bonuses WHERE partner_id = ?', [$id]);
+        if (!$isAdmin) flash('Only admins can delete partners.', 'err');
+        elseif ($hasLeads || $hasBonus) flash('This partner has leads or payouts, so they cannot be deleted. Suspend or reject them instead to keep the history.', 'err');
+        elseif (p('confirm_code', 12) !== $pt['code']) flash('To delete, type the partner ID (' . $pt['code'] . ') in the box.', 'err');
+        else {
+            q('DELETE FROM partners WHERE id = ?', [$id]);
+            clear_attempts('plogin', $pt['mobile']);
+            flash('Partner ' . $pt['name'] . ' (' . $pt['code'] . ') was deleted.');
+            redirect('/admin/partners.php');
+        }
     } elseif ($a === 'reset') {
         $tmp = temp_password();
         q('UPDATE partners SET password_hash = ?, must_change = 1 WHERE id = ?', [password_hash($tmp, PASSWORD_DEFAULT), $id]);
@@ -75,6 +87,10 @@ page_start($pt['name'], 'admin', admin_nav($u), 'partners');
     <?php endforeach; ?>
       <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="reset"><button class="btn o s">Reset password</button></form>
     </div>
+    <?php if ($isAdmin && !$leads && !(int) val('SELECT COUNT(*) FROM bonuses WHERE partner_id = ?', [$id])): ?>
+    <form method="post" class="actions" style="margin-top:12px" onsubmit="return confirm('Permanently delete this partner? This cannot be undone.')"><?= csrf_field() ?><input type="hidden" name="action" value="delete">
+      <input name="confirm_code" placeholder="Type <?= h($pt['code']) ?> to confirm" style="max-width:220px"><button class="btn red s">Delete partner</button></form>
+    <?php endif; ?>
     <?php if ($pt['message']): ?><p class="small" style="margin-top:12px"><b>Their message:</b> <?= nl2br(h($pt['message'])) ?></p><?php endif; ?>
   </div>
   <div class="card"><h2>Leads</h2>
