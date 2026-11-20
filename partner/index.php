@@ -73,7 +73,9 @@ page_start('Dashboard', 'partner', partner_nav(), 'home');
     <?php endif; ?>
     <div class="card small">
       <h2>How you earn</h2>
-      <p>3% on homes up to 10 kW · <?= h(setting('rate_commercial', '1.5')) ?>% on commercial up to 100 kW · up to <?= h(setting('rate_industrial_max', '1')) ?>% on industrial (confirmed case by case). Paid by Finrush after installation and full customer payment.</p>
+      <?php $tl = ['residential' => 'Homes', 'commercial' => 'Commercial / societies', 'industrial' => 'Industrial']; ?>
+      <ul style="margin-left:16px"><?php foreach (commission_plans() as $pl): ?><li><?= h(($tl[$pl['type']] ?? $pl['type']) . ', ' . plan_range_label($pl) . ': ' . plan_value_label($pl)) ?></li><?php endforeach; ?></ul>
+      <p style="margin-top:6px">Paid by Finrush after installation and full customer payment.</p>
     </div>
   </div>
 </div>

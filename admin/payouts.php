@@ -69,7 +69,7 @@ page_start('Payouts', 'admin', admin_nav($u), 'payouts');
 <td><input type="checkbox" class="pc" name="ids[]" value="<?= (int) $r['id'] ?>"></td>
 <td><a href="<?= h(url('/admin/partner.php?id=' . $r['partner_id'])) ?>"><?= h($r['pname']) ?></a><div class="small mono muted"><?= h($r['pcode']) ?></div></td>
 <td><a href="<?= h(url('/admin/lead.php?id=' . $r['id'])) ?>"><?= h($r['customer_name']) ?></a></td><td class="small"><?= h(dt($r['payment_received_on'])) ?></td>
-<td class="num"><?= inr($r['project_value']) ?></td><td class="num"><?= h((string) (float) $r['commission_rate']) ?>%</td><td class="num"><b><?= inr($r['commission_amount']) ?></b></td>
+<td class="num"><?= inr($r['project_value']) ?></td><td class="num" title="<?= h($r['commission_basis']) ?>"><?= h(commission_rate_text($r)) ?></td><td class="num"><b><?= inr($r['commission_amount']) ?></b></td>
 <td class="num"><?= inr(round($r['commission_amount'] * (1 - $tdsDefault / 100), 2)) ?></td>
 <td class="small"><?= $r['bank_last4'] ? h($r['bank_name']) . ' ••' . h($r['bank_last4']) . '<br>' . h($r['ifsc']) : '<span class="badge b-pending">No bank on file</span>' ?><br><?= $r['pan'] ? '<span class="mono">' . h($r['pan']) . '</span>' : '<span class="badge b-pending">No PAN</span>' ?> <?= $r['kyc_status'] !== 'verified' ? '<span class="badge b-pending">KYC pending</span>' : '' ?></td></tr><?php endforeach; ?>
 </tbody></table></div>

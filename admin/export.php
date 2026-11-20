@@ -16,10 +16,10 @@ function csv_out(string $name, array $header, array $rows): void {
 }
 
 if ($what === 'leads') {
-    $rows = all('SELECT l.ref, l.created_at, l.customer_name, l.customer_phone, l.customer_city, l.project_type, l.size_info, l.pm_surya_ghar, l.stage, us.name assigned, p.code, p.name pname,
-        l.project_value, l.commission_rate, l.commission_amount, l.commission_status, l.payment_received_on, l.commission_paid_on, l.commission_ref, l.lost_reason, l.updated_at
+    $rows = all('SELECT l.ref, l.created_at, l.customer_name, l.customer_phone, l.customer_city, l.project_type, l.size_info, l.system_kw, l.pm_surya_ghar, l.stage, us.name assigned, p.code, p.name pname,
+        l.project_value, l.commission_rate, l.commission_basis, l.commission_amount, l.commission_status, l.payment_received_on, l.commission_paid_on, l.commission_ref, l.lost_reason, l.updated_at
         FROM leads l LEFT JOIN partners p ON p.id = l.partner_id LEFT JOIN users us ON us.id = l.assigned_to ORDER BY l.created_at DESC');
-    csv_out('finrush-leads', ['Ref', 'Created', 'Customer', 'Mobile', 'City', 'Type', 'Size/bill', 'PM Surya Ghar', 'Stage', 'Assigned to', 'Partner ID', 'Partner', 'Project value', 'Rate %', 'Commission', 'Commission status', 'Payment received', 'Commission paid', 'Payout ref', 'Closed reason', 'Updated'],
+    csv_out('finrush-leads', ['Ref', 'Created', 'Customer', 'Mobile', 'City', 'Type', 'Size/bill', 'System kW', 'PM Surya Ghar', 'Stage', 'Assigned to', 'Partner ID', 'Partner', 'Project value', 'Rate %', 'Worked out as', 'Commission', 'Commission status', 'Payment received', 'Commission paid', 'Payout ref', 'Closed reason', 'Updated'],
         array_map(fn($r) => array_values(array_merge($r, ['stage' => stage_label($r['stage'])])), $rows));
 }
 if ($what === 'partners') {

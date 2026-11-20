@@ -57,7 +57,8 @@ page_start($l['customer_name'], 'partner', partner_nav(), 'leads');
   </dl></div>
   <div class="card"><h2>Your commission</h2><dl class="kv">
     <dt>Project value</dt><dd><?= $l['project_value'] !== null && in_array($l['stage'], ['payment_received', 'commission_paid'], true) ? inr($l['project_value']) . ' <span class="small muted">excl. GST</span>' : '<span class="muted">After installation</span>' ?></dd>
-    <dt>Rate</dt><dd><?= $l['commission_rate'] !== null && $l['commission_status'] !== 'none' ? h(rtrim(rtrim((string) $l['commission_rate'], '0'), '.')) . '%' : '—' ?></dd>
+    <dt>System size</dt><dd><?= $l['system_kw'] !== null ? h(rtrim(rtrim($l['system_kw'], '0'), '.')) . ' kW' : '—' ?></dd>
+    <dt>Worked out as</dt><dd class="small"><?= $l['commission_status'] !== 'none' ? h($l['commission_basis'] ?: commission_rate_text($l)) : '—' ?></dd>
     <dt>Commission</dt><dd><b><?= $l['commission_status'] !== 'none' ? inr($l['commission_amount']) : '—' ?></b></dd>
     <dt>Status</dt><dd><?php $cs = ['none' => 'Not yet earned', 'pending' => 'Due — will be paid soon', 'paid' => 'Paid', 'reversed' => 'Reversed']; ?><span class="badge b-<?= h($l['commission_status']) ?>"><?= h($cs[$l['commission_status']]) ?></span></dd>
     <?php if ($l['commission_status'] === 'paid'): ?><dt>Paid on</dt><dd><?= h(dt($l['commission_paid_on'])) ?></dd><dt>TDS</dt><dd><?= inr($l['commission_tds']) ?></dd><dt>Net paid</dt><dd><?= inr($l['commission_net']) ?></dd><dt>Reference</dt><dd class="mono small"><?= h($l['commission_ref'] ?: '—') ?></dd><?php endif; ?>

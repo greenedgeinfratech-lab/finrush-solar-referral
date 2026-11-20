@@ -25,7 +25,7 @@ page_start('Earnings', 'partner', partner_nav(), 'earnings');
 <?php if (!$rows): ?><tr><td colspan="9" class="empty">No commissions yet. Commission is earned when a referred project is installed and fully paid.</td></tr><?php endif; ?>
 <?php foreach ($rows as $r): ?><tr>
 <td><a href="<?= h(url('/partner/lead.php?id=' . $r['id'])) ?>"><?= h($r['customer_name']) ?></a></td><td><?= h(dt($r['payment_received_on'])) ?></td>
-<td class="num"><?= inr($r['project_value']) ?></td><td class="num"><?= h(rtrim(rtrim((string) $r['commission_rate'], '0'), '.')) ?>%</td><td class="num"><b><?= inr($r['commission_amount']) ?></b></td>
+<td class="num"><?= inr($r['project_value']) ?></td><td class="num" title="<?= h($r['commission_basis']) ?>"><?= h(commission_rate_text($r)) ?></td><td class="num"><b><?= inr($r['commission_amount']) ?></b></td>
 <td><span class="badge b-<?= h($r['commission_status']) ?>"><?= h(ucfirst($r['commission_status'])) ?></span></td>
 <td class="num"><?= $r['commission_status'] === 'paid' ? inr($r['commission_tds']) : '—' ?></td><td class="num"><?= $r['commission_status'] === 'paid' ? inr($r['commission_net']) : '—' ?></td>
 <td class="small"><?= $r['commission_status'] === 'paid' ? h(dt($r['commission_paid_on'])) . '<br><span class="mono">' . h($r['commission_ref']) . '</span>' : '—' ?></td></tr><?php endforeach; ?>

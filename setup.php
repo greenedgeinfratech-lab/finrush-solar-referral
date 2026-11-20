@@ -34,7 +34,8 @@ function install_crm(array $v, string $dbPass, string $mobile, string $pw, bool 
         'rate_residential' => '3', 'rate_commercial' => '1.5', 'rate_industrial_max' => '1', 'tds_percent' => '2',
         'bonus_slabs' => json_encode([[1000000, 25000], [2500000, 75000], [5000000, 200000]]),
         'notify_emails' => implode(',', array_filter(array_map('trim', explode(',', $v['notify'])), fn($e) => filter_var($e, FILTER_VALIDATE_EMAIL))),
-        'whatsapp' => '919837067681', 'mail_from' => 'noreply@finrush.co.in',
+        'whatsapp' => '919837067681', 'mail_from' => 'noreply@finrush.co.in', 'schema_version' => '2',
+                'commission_plans' => json_encode([['type' => 'residential', 'min' => 0, 'max' => 10, 'mode' => 'percent', 'value' => 3], ['type' => 'commercial', 'min' => 0, 'max' => 100, 'mode' => 'percent', 'value' => 1.5], ['type' => 'industrial', 'min' => 0, 'max' => null, 'mode' => 'percent', 'value' => 1]]),
     ];
     $st = $pdo->prepare('INSERT IGNORE INTO settings (k, v) VALUES (?, ?)');
     foreach ($defaults as $k => $val) $st->execute([$k, $val]);

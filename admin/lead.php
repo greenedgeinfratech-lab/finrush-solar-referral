@@ -27,26 +27,35 @@ if (is_post()) {
         $assigned = (int) p('assigned_to', 10);
         $valueRaw = str_replace([',', '₹', ' '], '', p('project_value', 20));
         $value = $valueRaw === '' ? null : (float) $valueRaw;
-        $rateRaw = p('commission_rate', 6);
+        $rateRaw = str_replace('%', '', p('commission_override', 8));
         $rate = $rateRaw === '' ? null : (float) $rateRaw;
+        $kwRaw = str_replace([',', ' ', 'kW', 'kw', 'KW'], '', p('system_kw', 12));
+        $kw = $kwRaw === '' ? null : (float) $kwRaw;
         if ($name === '' || !valid_mobile($phone) || !isset(PROJECT_TYPES[$type])) $err = 'Name, a valid mobile and project type are required.';
         elseif ($value !== null && ($value < 0 || $value > 1e11)) $err = 'Project value looks wrong.';
-        elseif ($type === 'industrial' && $rate !== null && $rate > (float) setting('rate_industrial_max', '1')) $err = 'Industrial rate cannot exceed ' . setting('rate_industrial_max', '1') . '%.';
+        elseif ($rate !== null && ($rate < 0 || $rate > 20 || !is_numeric($rateRaw))) $err = 'Special rate must be a percentage between 0 and 20, or left blank to use the kW plan.';
+        elseif ($kw !== null && ($kw <= 0 || $kw > 100000 || !is_numeric($kwRaw))) $err = 'System size (kW) looks wrong.';
+        elseif ($locked && $kw !== null && (string) $kw !== (string) (float) $l['system_kw'] && $l['system_kw'] !== null) $err = 'Commission is already paid, so the system size is locked.';
         elseif ($phone !== $l['customer_phone'] && ($d = open_lead_for_phone($phone, $id))) $err = 'Another open lead already has this mobile (' . $d['ref'] . ').';
         elseif ($locked && ((string) $value !== (string) (float) $l['project_value'] || $type !== $l['project_type'])) $err = 'Commission is already paid, so project value and type are locked.';
         else {
             $assignedId = $assigned > 0 && one('SELECT id FROM users WHERE id = ? AND active = 1', [$assigned]) ? $assigned : null;
-            q('UPDATE leads SET customer_name=?, customer_phone=?, customer_city=?, project_type=?, size_info=?, pm_surya_ghar=?, assigned_to=?, project_value=?, commission_rate=?, updated_at=NOW() WHERE id=?',
-              [$name, $phone, $city, $type, $size ?: null, $pm ?: null, $assignedId, $value, $type === 'industrial' ? $rate : ($l['commission_status'] === 'none' ? null : $l['commission_rate']), $id]);
+            q('UPDATE leads SET customer_name=?, customer_phone=?, customer_city=?, project_type=?, size_info=?, system_kw=?, pm_surya_ghar=?, assigned_to=?, project_value=?, commission_override=?, updated_at=NOW() WHERE id=?',
+              [$name, $phone, $city, $type, $size ?: null, $locked ? $l['system_kw'] : $kw, $pm ?: null, $assignedId, $value, $locked ? $l['commission_override'] : ($isAdmin ? $rate : $l['commission_override']), $id]);
             $changes = [];
             if ((int) $l['assigned_to'] !== (int) $assignedId) $changes[] = 'Assigned to ' . ($assignedId ? val('SELECT name FROM users WHERE id = ?', [$assignedId]) : 'nobody');
             if ((string) $l['project_value'] !== (string) ($value === null ? null : number_format($value, 2, '.', ''))) $changes[] = 'Project value set to ' . inr($value);
             if ($type !== $l['project_type']) $changes[] = 'Type changed to ' . PROJECT_TYPES[$type];
+            if (!$locked && (string) $l['system_kw'] !== (string) ($kw === null ? null : number_format($kw, 2, '.', ''))) $changes[] = 'System size set to ' . ($kw === null ? '—' : $kw . ' kW');
+            if ($isAdmin && !$locked && (string) $l['commission_override'] !== (string) ($rate === null ? null : number_format($rate, 2, '.', ''))) $changes[] = $rate === null ? 'Special rate removed (kW plan applies)' : 'Special rate set to ' . $rate . '%';
             // Keep a due commission in step with the new value/type
             if ($l['commission_status'] === 'pending') {
                 $fresh = one('SELECT * FROM leads WHERE id = ?', [$id]);
-                $r = commission_rate_for($fresh);
-                if ($r !== null && $value) { q('UPDATE leads SET commission_rate=?, commission_amount=? WHERE id=?', [$r, round($value * $r / 100, 2), $id]); $changes[] = 'Commission recalculated: ' . inr(round($value * $r / 100, 2)); }
+                $c = commission_for($fresh);
+                if (isset($c['amount']) && (float) $c['amount'] !== (float) $l['commission_amount']) {
+                    q('UPDATE leads SET commission_rate=?, commission_amount=?, commission_basis=? WHERE id=?', [$c['rate'], $c['amount'], $c['basis'], $id]);
+                    $changes[] = 'Commission recalculated: ' . inr($c['amount']) . ' (' . $c['basis'] . ')';
+                } elseif (isset($c['error'])) $changes[] = 'Could not recalculate commission: ' . $c['error'];
             }
             if ($changes) add_event($id, 'team', (int) $u['id'], 'update', implode("\n", $changes), false);
             flash('Lead details saved.');
@@ -63,28 +72,26 @@ if (is_post()) {
         else {
             $sets = ['stage = ?']; $vals = [$to];
             if ($to === 'payment_received') {
-                $fresh = $l;
-                $rate = commission_rate_for($fresh);
                 $pdate = p('payment_date', 10) ?: date('Y-m-d');
+                $c = $l['partner_id'] ? commission_for($l) : [];
                 if (!$l['project_value'] || (float) $l['project_value'] <= 0) $err = 'Enter the project value (excluding GST) in Lead details first.';
                 elseif ($l['project_type'] === 'unknown') $err = 'Set the project type in Lead details first.';
-                elseif ($rate === null) $err = 'Enter the commission rate for this industrial project in Lead details first.';
+                elseif (isset($c['error'])) $err = $c['error'];
                 elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $pdate) || strtotime($pdate) > time() + 86400) $err = 'Enter a valid payment date.';
                 elseif (!$l['partner_id']) { array_push($sets, 'payment_received_on = ?'); $vals[] = $pdate; }
                 else {
-                    $amt = round((float) $l['project_value'] * $rate / 100, 2);
-                    array_push($sets, 'commission_rate = ?', 'commission_amount = ?', "commission_status = 'pending'", 'payment_received_on = ?');
-                    array_push($vals, $rate, $amt, $pdate);
-                    $note = trim(($note !== '' ? $note . "\n" : '') . 'Commission due: ' . inr($amt) . ' (' . rtrim(rtrim(number_format($rate, 2), '0'), '.') . '% of ' . inr($l['project_value']) . ')');
+                    array_push($sets, 'commission_rate = ?', 'commission_amount = ?', 'commission_basis = ?', "commission_status = 'pending'", 'payment_received_on = ?');
+                    array_push($vals, $c['rate'], $c['amount'], $c['basis'], $pdate);
+                    $note = trim(($note !== '' ? $note . "\n" : '') . 'Commission due: ' . inr($c['amount']) . ' (' . $c['basis'] . ')');
                 }
             } elseif ($to === 'lost') {
                 $reason = p('lost_reason', 200);
                 array_push($sets, 'lost_reason = ?'); $vals[] = $reason;
                 $note = trim('Reason: ' . $reason . ($note !== '' ? "\n" . $note : ''));
-                if ($l['commission_status'] === 'pending') array_push($sets, "commission_status = 'none'", 'commission_amount = NULL', 'payment_received_on = NULL');
+                if ($l['commission_status'] === 'pending') array_push($sets, "commission_status = 'none'", 'commission_amount = NULL', 'commission_rate = NULL', 'commission_basis = NULL', 'payment_received_on = NULL');
                 if ($l['commission_status'] === 'paid') { array_push($sets, "commission_status = 'reversed'"); $note .= "\nCommission of " . inr($l['commission_amount']) . ' was already paid and is marked for recovery.'; }
             } elseif (in_array($from, ['payment_received'], true)) {
-                array_push($sets, "commission_status = 'none'", 'commission_amount = NULL', 'payment_received_on = NULL');
+                array_push($sets, "commission_status = 'none'", 'commission_amount = NULL', 'commission_rate = NULL', 'commission_basis = NULL', 'payment_received_on = NULL');
                 $note = trim(($note !== '' ? $note . "\n" : '') . 'Commission cleared because the lead moved back.');
             }
             if ($from === 'lost') { array_push($sets, 'lost_reason = NULL'); }
@@ -159,11 +166,14 @@ page_start($l['customer_name'], 'admin', admin_nav($u), 'leads');
       <div class="f"><label>Mobile</label><input name="customer_phone" value="<?= h($l['customer_phone']) ?>" required maxlength="13"></div>
       <div class="f"><label>City</label><input name="customer_city" value="<?= h($l['customer_city']) ?>" maxlength="80"></div>
       <div class="f"><label>Project type</label><select name="project_type" id="ptype"<?= $locked ? ' disabled' : '' ?>><?= select_opts(PROJECT_TYPES, $l['project_type']) ?></select><?php if ($locked): ?><input type="hidden" name="project_type" value="<?= h($l['project_type']) ?>"><?php endif; ?></div>
-      <div class="f"><label>Size / bill</label><input name="size_info" value="<?= h($l['size_info']) ?>" maxlength="60"></div>
+      <div class="f"><label>Size / bill (as told by customer)</label><input name="size_info" value="<?= h($l['size_info']) ?>" maxlength="60"></div>
       <div class="f"><label>PM Surya Ghar</label><select name="pm_surya_ghar"><?= select_opts(['Not sure' => 'Not sure', 'Yes' => 'Yes', 'No' => 'No'], $l['pm_surya_ghar']) ?></select></div>
       <div class="f"><label>Assigned to</label><select name="assigned_to"><?= select_opts($teamOpts, (string) (int) $l['assigned_to']) ?></select></div>
       <div class="f"><label>Project value, excl. GST (₹)</label><input name="project_value" inputmode="decimal" value="<?= h($l['project_value'] !== null ? rtrim(rtrim($l['project_value'], '0'), '.') : '') ?>"<?= $locked ? ' readonly' : '' ?> placeholder="Final invoice value"></div>
-      <div class="f" id="irate"><label>Industrial commission rate (%) — max <?= h(setting('rate_industrial_max', '1')) ?>%</label><input name="commission_rate" inputmode="decimal" value="<?= h($l['project_type'] === 'industrial' && $l['commission_rate'] !== null ? (string) (float) $l['commission_rate'] : '') ?>"<?= $locked ? ' readonly' : '' ?>></div>
+      <div class="f"><label>Final system size (kW) — decides the commission plan</label><input name="system_kw" inputmode="decimal" value="<?= h($l['system_kw'] !== null ? rtrim(rtrim($l['system_kw'], '0'), '.') : '') ?>"<?= $locked ? ' readonly' : '' ?> placeholder="e.g. 3 or 4.5"></div>
+      <?php $pl = $l['system_kw'] !== null && isset(PROJECT_TYPES[$l['project_type']]) ? find_plan($l['project_type'], (float) $l['system_kw']) : null; ?>
+      <p class="small muted" style="margin:-6px 0 10px"><?= $l['commission_override'] !== null ? 'Special rate ' . h((string) (float) $l['commission_override']) . '% applies.' : ($pl ? 'Plan: ' . h(plan_range_label($pl)) . ' → ' . h(plan_value_label($pl)) : ($l['system_kw'] !== null ? '<b style="color:#b42318">No plan covers this size — add one in Settings.</b>' : 'Enter the kW to see which plan applies.')) ?></p>
+      <?php if ($isAdmin): ?><div class="f"><label>Special rate (%) — optional, overrides the kW plan</label><input name="commission_override" inputmode="decimal" value="<?= h($l['commission_override'] !== null ? (string) (float) $l['commission_override'] : '') ?>"<?= $locked ? ' readonly' : '' ?> placeholder="Leave blank to use the plan"></div><?php endif; ?>
       <button class="btn s">Save details</button>
     </form>
   </div>
@@ -172,7 +182,7 @@ page_start($l['customer_name'], 'admin', admin_nav($u), 'leads');
   <?php else: ?><p class="muted">Direct lead (no partner commission).</p><?php endif; ?></div>
   <div class="card"><h2>Commission</h2><dl class="kv">
     <dt>Status</dt><dd><span class="badge b-<?= h($l['commission_status']) ?>"><?= h(ucfirst($l['commission_status'])) ?></span></dd>
-    <dt>Rate</dt><dd><?= $l['commission_status'] !== 'none' ? h((string) (float) $l['commission_rate']) . '%' : '—' ?></dd>
+    <dt>Worked out as</dt><dd class="small"><?= $l['commission_status'] !== 'none' ? h($l['commission_basis'] ?: commission_rate_text($l)) : '—' ?></dd>
     <dt>Amount</dt><dd><b><?= $l['commission_status'] !== 'none' ? inr($l['commission_amount']) : '—' ?></b></dd>
     <dt>Payment received</dt><dd><?= h(dt($l['payment_received_on'])) ?></dd>
     <?php if ($l['commission_paid_on']): ?><dt>Paid on</dt><dd><?= h(dt($l['commission_paid_on'])) ?></dd><dt>TDS / Net</dt><dd><?= inr($l['commission_tds']) ?> / <?= inr($l['commission_net']) ?></dd><dt>Reference</dt><dd class="mono small"><?= h($l['commission_ref']) ?></dd><?php endif; ?>
@@ -182,6 +192,6 @@ page_start($l['customer_name'], 'admin', admin_nav($u), 'leads');
 <script>
 (function(){var s=document.getElementById('to_stage'),pd=document.getElementById('pdate'),lr=document.getElementById('lreason');
 function t(){pd.hidden=s.value!=='payment_received';lr.hidden=s.value!=='lost';}s.addEventListener('change',t);t();
-var pt=document.getElementById('ptype'),ir=document.getElementById('irate');function r(){ir.hidden=pt.value!=='industrial';}pt.addEventListener('change',r);r();})();
+})();
 </script>
 <?php page_end();

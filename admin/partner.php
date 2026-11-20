@@ -36,12 +36,15 @@ if (is_post()) {
             flash('Partner details saved.');
         }
     } elseif ($a === 'delete') {
-        $hasLeads = (int) val('SELECT COUNT(*) FROM leads WHERE partner_id = ?', [$id]);
-        $hasBonus = (int) val('SELECT COUNT(*) FROM bonuses WHERE partner_id = ?', [$id]);
+        $hasMoney = (int) val("SELECT COUNT(*) FROM leads WHERE partner_id = ? AND commission_status <> 'none'", [$id]) + (int) val('SELECT COUNT(*) FROM bonuses WHERE partner_id = ?', [$id]);
         if (!$isAdmin) flash('Only admins can delete partners.', 'err');
-        elseif ($hasLeads || $hasBonus) flash('This partner has leads or payouts, so they cannot be deleted. Suspend or reject them instead to keep the history.', 'err');
-        elseif (p('confirm_code', 12) !== $pt['code']) flash('To delete, type the partner ID (' . $pt['code'] . ') in the box.', 'err');
+        elseif ($hasMoney) flash('This partner has commission due or paid, so they cannot be deleted — that is your payout and TDS record. Suspend them instead.', 'err');
+        elseif (strtoupper(p('confirm_code', 12)) !== $pt['code']) flash('To delete, type the partner ID (' . $pt['code'] . ') in the box.', 'err');
         else {
+            foreach (all('SELECT id FROM leads WHERE partner_id = ?', [$id]) as $lr) {
+                add_event((int) $lr['id'], 'team', (int) $u['id'], 'update', 'Partner ' . $pt['name'] . ' (' . $pt['code'] . ') was deleted; this is now a direct lead.', false);
+            }
+            q('UPDATE leads SET partner_id = NULL WHERE partner_id = ?', [$id]);
             q('DELETE FROM partners WHERE id = ?', [$id]);
             clear_attempts('plogin', $pt['mobile']);
             flash('Partner ' . $pt['name'] . ' (' . $pt['code'] . ') was deleted.');
@@ -87,12 +90,20 @@ page_start($pt['name'], 'admin', admin_nav($u), 'partners');
     <?php endforeach; ?>
       <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="reset"><button class="btn o s">Reset password</button></form>
     </div>
-    <?php if ($isAdmin && !$leads && !(int) val('SELECT COUNT(*) FROM bonuses WHERE partner_id = ?', [$id])): ?>
-    <form method="post" class="actions" style="margin-top:12px" onsubmit="return confirm('Permanently delete this partner? This cannot be undone.')"><?= csrf_field() ?><input type="hidden" name="action" value="delete">
-      <input name="confirm_code" placeholder="Type <?= h($pt['code']) ?> to confirm" style="max-width:220px"><button class="btn red s">Delete partner</button></form>
-    <?php endif; ?>
+
     <?php if ($pt['message']): ?><p class="small" style="margin-top:12px"><b>Their message:</b> <?= nl2br(h($pt['message'])) ?></p><?php endif; ?>
   </div>
+  <?php if ($isAdmin): $money = (int) val("SELECT COUNT(*) FROM leads WHERE partner_id = ? AND commission_status <> 'none'", [$id]) + (int) val('SELECT COUNT(*) FROM bonuses WHERE partner_id = ?', [$id]); ?>
+  <div class="card" id="delete" style="border-color:#f3c2c2"><h2 style="color:#b42318">Delete partner</h2>
+    <?php if ($money): ?>
+      <p class="small">This partner has commission due or paid, so they can't be deleted — that's your payout and TDS record. Use <b>Suspend</b> above to block their login instead.</p>
+    <?php else: ?>
+      <p class="small muted">Permanently removes <?= h($pt['name']) ?>'s account and login. <?= $leads ? count($leads) . ' lead(s) stay in the CRM as direct leads.' : '' ?> This cannot be undone.</p>
+      <form method="post" class="actions" style="margin-top:8px" onsubmit="return confirm('Permanently delete this partner? This cannot be undone.')"><?= csrf_field() ?><input type="hidden" name="action" value="delete">
+        <input name="confirm_code" placeholder="Type <?= h($pt['code']) ?> to confirm" style="max-width:220px" autocomplete="off"><button class="btn red s">Delete partner</button></form>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
   <div class="card"><h2>Leads</h2>
     <div class="tbl-wrap"><table class="t"><thead><tr><th>Customer</th><th>Stage</th><th class="num">Commission</th><th>Updated</th></tr></thead><tbody>
     <?php if (!$leads): ?><tr><td colspan="4" class="empty">No leads yet.</td></tr><?php endif; ?>

@@ -97,7 +97,33 @@ function db(): PDO {
     }
     // Pin the connection collation so text comparisons never mix server defaults (Hostinger uses utf8mb4_unicode_ci).
     $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '+05:30'");
+    ensure_schema($pdo);
     return $pdo;
+}
+
+/** Small in-place upgrades for databases created by earlier versions. Cheap: one indexed read per request. */
+const SCHEMA_VERSION = 2;
+function ensure_schema(PDO $pdo): void {
+    $v = (int) ($pdo->query("SELECT v FROM settings WHERE k = 'schema_version'")->fetchColumn() ?: 1);
+    if ($v >= SCHEMA_VERSION) return;
+    $has = fn(string $col) => (bool) $pdo->query("SHOW COLUMNS FROM leads LIKE " . $pdo->quote($col))->fetch();
+    if (!$has('system_kw')) $pdo->exec('ALTER TABLE leads ADD COLUMN system_kw DECIMAL(8,2) NULL AFTER size_info');
+    if (!$has('commission_basis')) $pdo->exec('ALTER TABLE leads ADD COLUMN commission_basis VARCHAR(160) NULL AFTER commission_amount');
+    if (!$has('commission_override')) {
+        $pdo->exec('ALTER TABLE leads ADD COLUMN commission_override DECIMAL(5,2) NULL AFTER commission_rate');
+        // earlier versions stored the industrial per-lead rate in commission_rate before calculation
+        $pdo->exec("UPDATE leads SET commission_override = commission_rate WHERE commission_status = 'none' AND commission_rate IS NOT NULL");
+    }
+    if (!$pdo->query("SELECT 1 FROM settings WHERE k = 'commission_plans'")->fetch()) {
+        $get = function (string $k, string $d) use ($pdo) { $x = $pdo->query('SELECT v FROM settings WHERE k = ' . $pdo->quote($k))->fetchColumn(); return $x === false ? $d : (string) $x; };
+        $plans = [
+            ['type' => 'residential', 'min' => 0, 'max' => 10, 'mode' => 'percent', 'value' => (float) $get('rate_residential', '3')],
+            ['type' => 'commercial', 'min' => 0, 'max' => 100, 'mode' => 'percent', 'value' => (float) $get('rate_commercial', '1.5')],
+            ['type' => 'industrial', 'min' => 0, 'max' => null, 'mode' => 'percent', 'value' => (float) $get('rate_industrial_max', '1')],
+        ];
+        $pdo->prepare("INSERT INTO settings (k, v) VALUES ('commission_plans', ?)")->execute([json_encode($plans)]);
+    }
+    $pdo->prepare("INSERT INTO settings (k, v) VALUES ('schema_version', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)")->execute([(string) SCHEMA_VERSION]);
 }
 function q(string $sql, array $args = []): PDOStatement { $s = db()->prepare($sql); $s->execute($args); return $s; }
 function one(string $sql, array $args = []): ?array { $r = q($sql, $args)->fetch(); return $r ?: null; }
@@ -231,9 +257,9 @@ const STAGES = [
     'lost'             => ['Closed', 'This lead did not convert'],
 ];
 const PROJECT_TYPES = [
-    'residential' => 'Residential (home, up to 10 kW)',
-    'commercial'  => 'Commercial / society / home above 10 kW (up to 100 kW)',
-    'industrial'  => 'Industrial (above 100 kW)',
+    'residential' => 'Residential (home)',
+    'commercial'  => 'Commercial / shop / school / society',
+    'industrial'  => 'Industrial / factory',
     'unknown'     => 'Not sure yet',
 ];
 function stage_label(string $s): string { return STAGES[$s][0] ?? $s; }
@@ -294,17 +320,66 @@ function site_origin(): string {
     return ($https ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'finrush.co.in');
 }
 
-/** Commission rate for a lead, in percent. */
-function commission_rate_for(array $lead, ?float $industrialRate = null): ?float {
-    switch ($lead['project_type']) {
-        case 'residential': return (float) setting('rate_residential', '3');
-        case 'commercial':  return (float) setting('rate_commercial', '1.5');
-        case 'industrial':
-            $max = (float) setting('rate_industrial_max', '1');
-            $r = $industrialRate ?? ($lead['commission_rate'] !== null ? (float) $lead['commission_rate'] : null);
-            return $r === null ? null : min(max($r, 0), $max);
+// ---------- commission plans (editable in Settings) ----------
+const PLAN_MODES = ['percent' => '% of project value', 'fixed' => 'Fixed ₹ per project', 'per_kw' => '₹ per kW'];
+/** Plans: [{type, min, max|null, mode, value}]. A plan covers kW MORE THAN min (0 = from zero) UP TO AND INCLUDING max (null = no limit). */
+function commission_plans(): array {
+    $p = json_decode((string) setting('commission_plans', '[]'), true) ?: [];
+    $ord = ['residential' => 1, 'commercial' => 2, 'industrial' => 3];
+    usort($p, fn($a, $b) => [$ord[$a['type']] ?? 9, (float) $a['min']] <=> [$ord[$b['type']] ?? 9, (float) $b['min']]);
+    return $p;
+}
+function plan_range_label(array $pl): string {
+    $min = (float) $pl['min']; $max = $pl['max'] === null || $pl['max'] === '' ? null : (float) $pl['max'];
+    $f = fn($n) => rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.');
+    if ($min <= 0 && $max === null) return 'any size';
+    if ($min <= 0) return 'up to ' . $f($max) . ' kW';
+    if ($max === null) return 'above ' . $f($min) . ' kW';
+    return 'above ' . $f($min) . ' up to ' . $f($max) . ' kW';
+}
+function plan_value_label(array $pl): string {
+    $v = (float) $pl['value'];
+    if ($pl['mode'] === 'fixed') return inr($v) . ' per project';
+    if ($pl['mode'] === 'per_kw') return inr($v) . ' per kW';
+    return rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . '% of project value';
+}
+function find_plan(string $type, float $kw): ?array {
+    foreach (commission_plans() as $pl) {
+        if ($pl['type'] !== $type) continue;
+        $min = (float) $pl['min']; $max = $pl['max'] === null || $pl['max'] === '' ? null : (float) $pl['max'];
+        if (($min <= 0 ? $kw >= 0 : $kw > $min) && ($max === null || $kw <= $max)) return $pl;
     }
     return null;
+}
+/**
+ * Work out a lead's commission. Uses the per-lead override % if one is set, otherwise the matching kW plan.
+ * Returns ['amount' => float, 'rate' => ?float (percent, null for ₹ plans), 'basis' => string] or ['error' => string].
+ */
+function commission_for(array $lead): array {
+    $type = $lead['project_type'];
+    $value = (float) ($lead['project_value'] ?? 0);
+    $kw = $lead['system_kw'] !== null && $lead['system_kw'] !== '' ? (float) $lead['system_kw'] : null;
+    $types = ['residential' => 'Residential', 'commercial' => 'Commercial', 'industrial' => 'Industrial'];
+    if (!isset($types[$type])) return ['error' => 'Set the project type in Lead details first.'];
+    if (($lead['commission_override'] ?? null) !== null && $lead['commission_override'] !== '') {
+        $r = (float) $lead['commission_override'];
+        if ($value <= 0) return ['error' => 'Enter the project value (excluding GST) in Lead details first.'];
+        return ['amount' => round($value * $r / 100, 2), 'rate' => $r, 'basis' => 'Special rate ' . rtrim(rtrim(number_format($r, 2, '.', ''), '0'), '.') . '% of ' . inr($value)];
+    }
+    if ($kw === null || $kw <= 0) return ['error' => 'Enter the final system size (kW) in Lead details first.'];
+    $pl = find_plan($type, $kw);
+    if (!$pl) return ['error' => 'No commission plan covers a ' . $kw . ' kW ' . strtolower($types[$type]) . ' project. Add one in Settings, or enter a special rate on this lead.'];
+    $label = $types[$type] . ' ' . plan_range_label($pl) . ' plan';
+    if ($pl['mode'] === 'fixed') return ['amount' => round((float) $pl['value'], 2), 'rate' => null, 'basis' => $label . ': ' . inr($pl['value']) . ' fixed'];
+    if ($pl['mode'] === 'per_kw') return ['amount' => round((float) $pl['value'] * $kw, 2), 'rate' => null, 'basis' => $label . ': ' . inr($pl['value']) . ' × ' . rtrim(rtrim(number_format($kw, 2, '.', ''), '0'), '.') . ' kW'];
+    if ($value <= 0) return ['error' => 'Enter the project value (excluding GST) in Lead details first.'];
+    return ['amount' => round($value * (float) $pl['value'] / 100, 2), 'rate' => (float) $pl['value'], 'basis' => $label . ': ' . rtrim(rtrim(number_format((float) $pl['value'], 2, '.', ''), '0'), '.') . '% of ' . inr($value)];
+}
+/** Short text for showing how a commission was worked out. */
+function commission_rate_text(array $l): string {
+    if ($l['commission_status'] === 'none') return '—';
+    if ($l['commission_rate'] !== null && $l['commission_rate'] !== '') return rtrim(rtrim((string) (float) $l['commission_rate'], '0'), '.') . '%';
+    return 'Fixed';
 }
 
 if (PHP_SAPI !== 'cli') start_session();
