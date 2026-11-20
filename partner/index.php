@@ -12,7 +12,8 @@ $earnedPending = (float) val("SELECT COALESCE(SUM(commission_amount),0) FROM lea
 $paid = (float) val("SELECT COALESCE(SUM(commission_amount),0) FROM leads WHERE partner_id = ? AND commission_status = 'paid'", [$pid])
       + (float) val('SELECT COALESCE(SUM(amount),0) FROM bonuses WHERE partner_id = ?', [$pid]);
 $month = date('Y-m');
-$monthSales = (float) val("SELECT COALESCE(SUM(project_value),0) FROM leads WHERE partner_id = ? AND commission_status IN ('pending','paid') AND DATE_FORMAT(payment_received_on,'%Y-%m') = ?", [$pid, $month]);
+[$ms, $me2] = month_range($month);
+$monthSales = (float) val("SELECT COALESCE(SUM(project_value),0) FROM leads WHERE partner_id = ? AND commission_status IN ('pending','paid') AND payment_received_on >= ? AND payment_received_on < ?", [$pid, $ms, $me2]);
 $next = null;
 foreach (bonus_slabs() as [$min, $amt]) if ($monthSales < $min) { $next = [$min, $amt]; break; }
 

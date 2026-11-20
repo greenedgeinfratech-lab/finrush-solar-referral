@@ -95,7 +95,8 @@ function db(): PDO {
             if ($i === count($wait) - 1) throw $e;
         }
     }
-    $pdo->exec("SET time_zone = '+05:30'");
+    // Pin the connection collation so text comparisons never mix server defaults (Hostinger uses utf8mb4_unicode_ci).
+    $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, time_zone = '+05:30'");
     return $pdo;
 }
 function q(string $sql, array $args = []): PDOStatement { $s = db()->prepare($sql); $s->execute($args); return $s; }
@@ -255,6 +256,11 @@ function dt($s, bool $time = false): string {
     if (!$s) return '—';
     $t = strtotime((string) $s);
     return $t ? date($time ? 'd M Y, h:i A' : 'd M Y', $t) : '—';
+}
+/** [first day of month, first day of next month] for a 'YYYY-MM' string — compare dates, not formatted text. */
+function month_range(string $ym): array {
+    $start = $ym . '-01';
+    return [$start, date('Y-m-d', strtotime($start . ' +1 month'))];
 }
 function partner_code(int $id): string { return 'FR' . str_pad((string) $id, 4, '0', STR_PAD_LEFT); }
 function new_lead_ref(): string { return 'L' . date('ymd') . '-' . strtoupper(bin2hex(random_bytes(2))); }

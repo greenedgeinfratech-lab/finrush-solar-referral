@@ -31,7 +31,8 @@ if (is_post()) {
     if ($a === 'bonus') {
         $pid = (int) p('partner_id', 10); $month = p('month', 7);
         if (!preg_match('/^\d{4}-\d{2}$/', $month)) { flash('Invalid month.', 'err'); redirect('/admin/payouts.php'); }
-        $sales = (float) val("SELECT COALESCE(SUM(project_value),0) FROM leads WHERE partner_id = ? AND commission_status IN ('pending','paid') AND DATE_FORMAT(payment_received_on,'%Y-%m') = ?", [$pid, $month]);
+        [$ms, $me2] = month_range($month);
+        $sales = (float) val("SELECT COALESCE(SUM(project_value),0) FROM leads WHERE partner_id = ? AND commission_status IN ('pending','paid') AND payment_received_on >= ? AND payment_received_on < ?", [$pid, $ms, $me2]);
         $amtRaw = str_replace([',', '₹', ' '], '', p('amount', 20));
         $amount = $amtRaw !== '' ? (float) $amtRaw : bonus_for($sales);
         if ($amount <= 0) flash('No bonus amount for this partner and month.', 'err');
@@ -51,8 +52,8 @@ $reversed = all("SELECT l.*, p.name pname FROM leads l JOIN partners p ON p.id =
 $month = g('month', 7);
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = date('Y-m', strtotime('first day of last month'));
 $bonusRows = all("SELECT p.id, p.name, p.code, COALESCE(SUM(l.project_value),0) sales, b.amount paid_amount, b.paid_on, b.ref
-   FROM partners p JOIN leads l ON l.partner_id = p.id AND l.commission_status IN ('pending','paid') AND DATE_FORMAT(l.payment_received_on,'%Y-%m') = ?
-   LEFT JOIN bonuses b ON b.partner_id = p.id AND b.month = ? GROUP BY p.id, p.name, p.code, b.amount, b.paid_on, b.ref ORDER BY sales DESC", [$month, $month]);
+   FROM partners p JOIN leads l ON l.partner_id = p.id AND l.commission_status IN ('pending','paid') AND l.payment_received_on >= ? AND l.payment_received_on < ?
+   LEFT JOIN bonuses b ON b.partner_id = p.id AND b.month = ? GROUP BY p.id, p.name, p.code, b.amount, b.paid_on, b.ref ORDER BY sales DESC", [...month_range($month), $month]);
 $history = all('SELECT b.*, p.name pname FROM bonuses b JOIN partners p ON p.id = b.partner_id ORDER BY b.paid_on DESC LIMIT 50');
 $totalDue = array_sum(array_map(fn($r) => (float) $r['commission_amount'], $pending));
 page_start('Payouts', 'admin', admin_nav($u), 'payouts');
